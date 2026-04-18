@@ -44,6 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Authentication state
   let currentUser = null;
 
+  // Currently open share dropdown (used to close it when clicking elsewhere)
+  let openShareDropdown = null;
+
   // Time range mappings for the dropdown
   const timeRanges = {
     morning: { start: "06:00", end: "08:00" }, // Before school hours
@@ -616,15 +619,25 @@ document.addEventListener("DOMContentLoaded", () => {
       event.stopPropagation();
       // Use Web Share API on supported devices (e.g. mobile)
       if (navigator.share) {
-        navigator.share({ title: name, text: shareText, url: shareUrl }).catch(() => {});
+        navigator.share({ title: name, text: shareText, url: shareUrl }).catch((error) => {
+          // AbortError means the user dismissed the share sheet — not a real error
+          if (error.name !== "AbortError") {
+            console.error("Error sharing activity:", error);
+            showMessage("Sharing failed. Try copying the link instead.", "info");
+          }
+        });
         return;
       }
       // Fallback: toggle dropdown
-      const isOpen = !shareDropdown.classList.contains("hidden");
-      // Close all other open dropdowns first
-      document.querySelectorAll(".share-dropdown").forEach((d) => d.classList.add("hidden"));
+      const isOpen = shareDropdown === openShareDropdown;
+      // Close any open dropdown
+      if (openShareDropdown) {
+        openShareDropdown.classList.add("hidden");
+        openShareDropdown = null;
+      }
       if (!isOpen) {
         shareDropdown.classList.remove("hidden");
+        openShareDropdown = shareDropdown;
       }
     });
 
@@ -637,6 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "noopener,noreferrer"
       );
       shareDropdown.classList.add("hidden");
+      openShareDropdown = null;
     });
 
     shareDropdown.querySelector("[data-platform='facebook']").addEventListener("click", (e) => {
@@ -647,6 +661,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "noopener,noreferrer"
       );
       shareDropdown.classList.add("hidden");
+      openShareDropdown = null;
     });
 
     shareDropdown.querySelector("[data-platform='whatsapp']").addEventListener("click", (e) => {
@@ -657,6 +672,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "noopener,noreferrer"
       );
       shareDropdown.classList.add("hidden");
+      openShareDropdown = null;
     });
 
     shareDropdown.querySelector(".copy-link-button").addEventListener("click", () => {
@@ -666,6 +682,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showMessage("Could not copy link. Please copy it manually: " + shareUrl, "info");
       });
       shareDropdown.classList.add("hidden");
+      openShareDropdown = null;
     });
 
     activitiesList.appendChild(activityCard);
@@ -750,7 +767,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Close share dropdowns when clicking outside
   document.addEventListener("click", () => {
-    document.querySelectorAll(".share-dropdown").forEach((d) => d.classList.add("hidden"));
+    if (openShareDropdown) {
+      openShareDropdown.classList.add("hidden");
+      openShareDropdown = null;
+    }
   });
 
   // Close modal when clicking outside of it
